@@ -1310,5 +1310,408 @@ siguiendo las secciones 17 a 26 del tutorial.
 
 <img width="1272" height="153" alt="com" src="https://github.com/user-attachments/assets/616af21c-0053-4c19-aaea-1b6bd37888d5" />
 
+## Etapa 3 — Graficación y cierre del lenguaje
+ 
+En esta etapa se completó el tutorial siguiendo las secciones 27 a 44: se agregó el comando `plot`, se implementó la ventana gráfica con Swing, se realizaron las pruebas finales de todo el lenguaje y se documentaron las preguntas de cierre, los retos y la reflexión final.
+ 
+### Motivación: evaluar la misma expresión muchas veces
+ 
+Hasta la etapa anterior, una expresión como `sin(pi/2)` se evaluaba una única vez y producía un único número. Para dibujar `y = sin(x)` es necesario evaluar la **misma expresión** para muchos valores distintos de `x`:
+ 
+```text
+Asignar valor a x
+        ↓
+Visitar el mismo árbol
+        ↓
+Obtener y
+        ↓
+Cambiar x
+        ↓
+Visitar nuevamente
+```
+ 
+Esto es posible porque `x` no es una constante grabada en el árbol sintáctico: es una variable que se busca en la tabla de símbolos (`memory`) en cada visita. Cambiar el valor asociado a `"x"` en el mapa entre una visita y otra permite reutilizar el árbol sin volver a analizar el texto de la expresión.
+ 
+### Diseño del comando `plot`
+ 
+Se agregó a la regla `stat` la alternativa:
+ 
+```antlr
+stat
+    : expr NEWLINE                                   # printExpr
+    | ID '=' expr NEWLINE                            # assign
+    | 'clear' NEWLINE                                # clear
+    | 'vars' NEWLINE                                 # showVars
+    | 'plot' '(' expr ',' expr ',' expr ')' NEWLINE  # plotExpr
+    | NEWLINE                                        # blank
+    ;
+```
+ 
+La sintaxis soportada es:
+ 
+```text
+plot(expresion, xmin, xmax)
+```
+ 
+Por ejemplo:
+ 
+```text
+plot(sin(x), -6.28, 6.28)
+plot(x^2, -10, 10)
+```
+ 
+ANTLR reconoce tres subexpresiones dentro de los paréntesis, accesibles como:
+ 
+| Índice | Contenido |
+|---|---|
+| `ctx.expr(0)` | la función a graficar, p. ej. `sin(x)` |
+| `ctx.expr(1)` | `xmin` |
+| `ctx.expr(2)` | `xmax` |
+ 
+Se regeneró el proyecto con:
+ 
+```bash
+antlr4 -no-listener -visitor ScientificCalc.g4
+```
+ 
+lo que agrega a `ScientificCalcVisitor.java` y `ScientificCalcBaseVisitor.java` el método `visitPlotExpr(...)`.
+ 
+### Evidencia
+ 
+**Captura 10 - Gramática con el comando `plot`**
+ 
+<img width="572" height="187" alt="image" src="https://github.com/user-attachments/assets/8c44d55c-37d7-4905-ab06-a7ec732e533d" />
+
+ 
+ 
+### Muestreo de la función e implementación de `visitPlotExpr`
+ 
+Para dibujar una curva continua se toman 800 muestras equiespaciadas entre `xmin` y `xmax`:
+ 
+```text
+xi = xmin + i * (xmax - xmin) / (N - 1)
+```
+ 
+En cada muestra se actualiza la tabla de símbolos y se vuelve a visitar el árbol de la expresión:
+ 
+```java
+@Override
+public Double visitPlotExpr(
+ScientificCalcParser.PlotExprContext ctx) {
+ 
+    double xmin = visit(ctx.expr(1));
+    double xmax = visit(ctx.expr(2));
+ 
+    int samples = 800;
+ 
+    List<Double> xs = new ArrayList<>();
+    List<Double> ys = new ArrayList<>();
+ 
+    for (int i = 0; i < samples; i++) {
+ 
+        double x = xmin + i * (xmax - xmin) / (samples - 1);
+ 
+        memory.put("x", x);
+ 
+        double y = visit(ctx.expr(0));
+ 
+        if (Double.isFinite(y)) {
+            xs.add(x);
+            ys.add(y);
+        }
+    }
+ 
+    new PlotWindow(xs, ys);
+ 
+    return 0.0;
+}
+```
+ 
+### El problema de las discontinuidades
+ 
+Al graficar `plot(1/x, -5, 5)`, cuando `x` se aproxima a `0`, Java puede producir `Infinity`, `-Infinity` o `NaN`. Estos valores no se pueden ubicar en un plano cartesiano de píxeles.
+ 
+**Solución aplicada (reto de la sección 32):** antes de agregar cada muestra a las listas `xs`/`ys` se comprueba `Double.isFinite(y)`, descartando silenciosamente los puntos no válidos:
+ 
+```java
+if (Double.isFinite(y)) {
+    xs.add(x);
+    ys.add(y);
+}
+```
+ 
+### Evidencia
+ 
+**Captura 11 - Implementación de `visitPlotExpr`**
+ 
+<img width="448" height="777" alt="image" src="https://github.com/user-attachments/assets/2f2f669d-20df-4a5d-ae3e-822acc2e9e07" />
+ 
+ 
+ 
+### Ventana gráfica (`PlotWindow.java`)
+ 
+Se implementó `PlotWindow` como un `JPanel` embebido en un `JFrame` de 800×600 píxeles. El flujo de `paintComponent` es:
+ 
+1. Calcular `xmin`, `xmax`, `ymin`, `ymax` a partir de las listas de puntos ya filtradas.
+2. Transformar cada coordenada matemática a coordenadas de píxel:
+```java
+int px = (int)((x - xmin) / (xmax - xmin) * getWidth());
+int py = getHeight() - (int)((y - ymin) / (ymax - ymin) * getHeight());
+```
+ 
+El término `getHeight() -` es necesario porque en Java2D el eje Y de pantalla crece hacia abajo, mientras que en el plano cartesiano crece hacia arriba.
+ 
+3. Recorrer los puntos consecutivos y unirlos con `g2.drawLine(px1, py1, px2, py2)`, formando la curva.
+### Evidencia
+ 
+**Captura 12 - Código de `PlotWindow.java`**
+ 
+<img width="463" height="577" alt="image" src="https://github.com/user-attachments/assets/5d37246b-a134-4f9e-97ff-69660aa21333" />
+
+<img width="476" height="752" alt="image" src="https://github.com/user-attachments/assets/ce197e07-dbaf-49c9-b869-0236fc91452b" />
+
+<img width="272" height="810" alt="image" src="https://github.com/user-attachments/assets/3f4af079-60a2-43b2-ab62-1eaf8e5eae84" />
+
+ 
+ 
+ 
+### Primera gráfica
+ 
+Se compiló y ejecutó el proyecto:
+ 
+```bash
+javac -cp ".:antlr-4.11.1-complete.jar" *.java
+java  -cp ".:antlr-4.11.1-complete.jar" Main
+```
+ 
+y se probó:
+ 
+```text
+plot(x^2,-10,10)
+plot(sin(x),-6.28,6.28)
+```
+ 
+### Evidencia
+ 
+**Captura 13 - Gráfica de la parábola**
+ 
+<img width="1416" height="593" alt="image" src="https://github.com/user-attachments/assets/64b2c4a9-af21-4127-b627-ee9dd8ec788e" />
+
+ 
+ 
+ 
+**Captura 14 - Gráfica del seno**
+ 
+<img width="1417" height="597" alt="image" src="https://github.com/user-attachments/assets/4243f222-0b5f-43ab-a626-222476e9b583" />
+
+ 
+ 
+ 
+### Archivo de pruebas (`ejemplos.txt`)
+ 
+```text
+2+2
+2+3*4
+(2+3)*4
+ 
+a = 10
+b = 20
+ 
+a+b
+a*b
+ 
+sqrt(25)
+ 
+2^8
+ 
+pi
+2*pi
+ 
+sin(pi/2)
+cos(0)
+ 
+log(100)
+ln(e)
+ 
+vars
+ 
+plot(x^2,-10,10)
+ 
+plot(sin(x),-6.28,6.28)
+```
+ 
+### Explorando el árbol sintáctico
+ 
+Para `sin(x) + 2*x^2`, el árbol (simplificado) es:
+ 
+```text
+                addSub (+)
+               /          \
+     functionCall          mulDiv (*)
+      /      \              /      \
+   "sin"      id(x)        2      power (^)
+                                   /      \
+                                 id(x)    2
+```
+ 
+| Parte de la expresión | Etiqueta / nodo en el árbol |
+|---|---|
+| suma | `# addSub` (raíz) |
+| función seno | `# functionCall` con `function = sin` |
+| multiplicación | `# mulDiv` |
+| potencia | `# power` |
+| identificador `x` | `# id` (dos apariciones, una dentro de `sin`, otra en `x^2`) |
+| número `2` | `# number` (dos apariciones: el factor y el exponente) |
+ 
+Cuando se ejecuta `visit(ctx.expr())`, **no se evalúa una cadena de texto**: se recorre (visita) la estructura de árbol ya construida por el Parser. El texto original solo existe dentro de los tokens hoja (`NUMBER`, `ID`, palabras reservadas); todo lo demás es navegación de nodos padre-hijo mediante llamadas recursivas a `visit(...)`.
+ 
+### Prueba de todo el lenguaje
+ 
+Se ejecutó la secuencia completa propuesta en el tutorial:
+ 
+```text
+radio = 10
+area = pi * radio^2
+area
+angulo = pi/4
+sin(angulo)
+cos(angulo)
+vars
+plot(sin(x), -6.28, 6.28)
+plot(x^2, -10, 10)
+```
+ 
+Resultados obtenidos (parte no gráfica):
+ 
+| Expresión | Resultado obtenido |
+|---|---|
+| `area` | `314.1592653589793` |
+| `sin(angulo)` | `0.7071067811865475` |
+| `cos(angulo)` | `0.7071067811865476` |
+| `vars` | `area = 314.1592653589793`, `angulo = 0.7853981633974483`, `radio = 10.0` |
+ 
+Ambos comandos `plot` completan las 800 muestras sin excepciones y abren la ventana gráfica correspondiente.
+ 
+### Evidencia
+ 
+**Captura 15 - Prueba completa del lenguaje**
+ 
+<img width="1130" height="882" alt="image" src="https://github.com/user-attachments/assets/a35984ff-acb5-452f-99ee-3720b5a5a71a" />
+
+ 
+ 
+### Preguntas finales
+ 
+1. **¿Cuál es la responsabilidad del Lexer?** Convertir el flujo de caracteres de entrada en una secuencia de tokens (NUMBER, ID, MUL, ADD, palabras reservadas como `sin` o `plot`, etc.), descartando espacios en blanco.
+2. **¿Cuál es la responsabilidad del Parser?** Tomar los tokens producidos por el Lexer y comprobar que cumplen las reglas gramaticales, construyendo un árbol sintáctico que representa la estructura de la entrada.
+3. **¿Qué función cumplen las etiquetas como `#addSub` o `#functionCall`?** Le indican a ANTLR que genere un tipo de nodo de árbol distinto para cada alternativa de una regla, y por tanto un método de Visitor propio (`visitAddSub`, `visitFunctionCall`), en lugar de un único método genérico para toda la regla `expr`.
+4. **¿Qué ventaja ofrece el patrón Visitor?** Separa la sintaxis (definida en la gramática) de la semántica (definida en la clase que extiende `ScientificCalcBaseVisitor`). Permite recorrer el mismo árbol con distintas lógicas (evaluar, graficar, imprimir, optimizar) sin modificar la gramática ni las clases generadas.
+5. **¿Qué representa la tabla de símbolos?** El mapa `memory` que asocia cada identificador (`String`) con su valor numérico (`Double`) actual; es la memoria de variables del intérprete.
+6. **¿Por qué la variable `x` cambia continuamente durante una gráfica?** Porque `visitPlotExpr` actualiza `memory.put("x", x)` en cada una de las 800 iteraciones antes de volver a visitar `ctx.expr(0)`, simulando la evaluación de la función en muchos puntos distintos.
+7. **¿Por qué podemos evaluar el mismo árbol sintáctico varias veces?** Porque el árbol es una estructura de datos inmutable construida una sola vez por el Parser; visitarlo no lo modifica, solo lee sus nodos. Cambiar el estado externo (la tabla de símbolos) entre visitas basta para obtener resultados distintos.
+8. **¿Qué sucede cuando se intenta graficar una función con una discontinuidad?** La evaluación en el punto de discontinuidad produce `Infinity`, `-Infinity` o `NaN`. Si no se filtran, estos valores generan líneas o transformaciones de coordenadas inválidas en el dibujo. Por eso `visitPlotExpr` descarta esas muestras con `Double.isFinite(y)`.
+9. **¿Qué modificaciones serían necesarias para implementar funciones con dos argumentos?** Habría que agregar una nueva alternativa a `expr`, por ejemplo `function2 '(' expr ',' expr ')' # functionCall2`, con una regla `function2` para nombres como `pow`, `max`, `min`, y un método `visitFunctionCall2` que visite `ctx.expr(0)` y `ctx.expr(1)` por separado antes de aplicar la operación.
+10. **¿Por qué la calculadora desarrollada puede considerarse un lenguaje de dominio específico?** Porque no es un lenguaje de propósito general: su gramática, vocabulario (funciones, constantes, comandos) y semántica están diseñados exclusivamente para resolver un dominio acotado — evaluación y graficación de expresiones matemáticas — igual que ocurre con lenguajes de consulta o de configuración.
+### Retos
+ 
+**Reto 1 — Nuevas funciones (implementado):** se agregaron `asin`, `acos`, `atan`, `floor` y `ceil` tanto a la regla `function` de la gramática como al `switch` de `visitFunctionCall`, reutilizando exactamente el mismo mecanismo que las funciones existentes. Se verificaron sin error de compilación ni de ejecución.
+ 
+Para los retos 2 a 5, siguiendo la indicación del tutorial de diseñar primero la gramática sin tocar el código Java, se proponen las siguientes reglas (diseño únicamente, sin implementar el Visitor):
+ 
+**Reto 2 — Funciones con dos argumentos** (`pow(2,8)`, `max(10,25)`, `min(10,25)`):
+ 
+```antlr
+expr
+    : ...
+    | function2 '(' expr ',' expr ')'   # functionCall2
+    | ...
+    ;
+ 
+function2
+    : 'pow'
+    | 'max'
+    | 'min'
+    ;
+```
+ 
+**Reto 3 — Rango vertical explícito** (`plot(expr,xmin,xmax,ymin,ymax)`):
+ 
+```antlr
+stat
+    : ...
+    | 'plot' '(' expr ',' expr ',' expr ',' expr ',' expr ')' NEWLINE  # plotExprRange
+    | ...
+    ;
+```
+ 
+(alternativa que convive con la regla `plotExpr` de tres argumentos, para no romper la sintaxis ya implementada.)
+ 
+**Reto 4 — Varias funciones en una misma gráfica** (`plot(sin(x),cos(x),-6.28,6.28)`):
+ 
+```antlr
+stat
+    : ...
+    | 'plot' '(' exprList ',' expr ',' expr ')' NEWLINE  # plotMultiExpr
+    | ...
+    ;
+ 
+exprList
+    : expr (',' expr)*
+    ;
+```
+ 
+**Reto 5 — Definición de funciones propias** (`f(x) = x^2 + 2*x + 1`, luego `f(5)` y `plot(f(x),-10,10)`):
+ 
+```antlr
+stat
+    : ...
+    | ID '(' ID ')' '=' expr NEWLINE   # defineFunction
+    | ...
+    ;
+ 
+expr
+    : ...
+    | ID '(' expr ')'   # userFunctionCall
+    | ...
+    ;
+```
+ 
+Esto exigiría una tabla de símbolos adicional para funciones definidas por el usuario (nombre → parámetro formal + árbol de la expresión), y que `userFunctionCall` sustituya temporalmente el parámetro formal en la tabla `memory` antes de visitar el cuerpo de la función — la misma técnica ya usada para la variable `x` al graficar.
+ 
+### Evidencia
+ 
+**Captura 16 - Reto 1 implementado**
+ 
+<img width="176" height="178" alt="image" src="https://github.com/user-attachments/assets/bbb788fd-2054-421b-8f00-ebede8afaa25" />
+ 
+ 
+ 
+### Lista de comprobación
+ 
+- números reales
+- suma
+- resta
+- multiplicación
+- división
+- paréntesis
+- variables
+- potencia
+- operadores unarios
+- constantes `pi` y `e`
+- funciones científicas (incluye el Reto 1: `asin`, `acos`, `atan`, `floor`, `ceil`)
+- comando `clear`
+- comando `vars`
+- comando `plot`
+- visualización gráfica
+### Reflexión final
+ 
+El laboratorio partió de una gramática mínima para expresiones aritméticas y, paso a paso, evolucionó hasta un pequeño lenguaje de dominio específico capaz de evaluar expresiones, mantener variables, invocar funciones matemáticas y representar funciones gráficamente. La arquitectura se mantuvo constante durante todo el proceso:
+ 
+```text
+Gramática → Lexer → Parser → Árbol → Visitor
+```
+ 
+La lección central es la separación de responsabilidades: **la gramática define qué es válido decir** (sintaxis) y **el Visitor define qué significa cada cosa** (semántica). Gracias a esa separación fue posible agregar potencias, funciones, constantes, comandos de memoria y finalmente graficación sin reescribir el intérprete completo cada vez — solo se amplió la gramática, se regeneraron los archivos de ANTLR y se agregó el método `visit...` correspondiente a la nueva etiqueta. Esa misma estrategia es la base de intérpretes, compiladores, traductores, analizadores de código y lenguajes de consulta mucho más complejos que el desarrollado aquí.
+
 
 
