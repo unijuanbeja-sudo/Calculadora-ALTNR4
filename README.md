@@ -1250,7 +1250,7 @@ Esta situación permite analizar si resulta más adecuado devolver cero o genera
 >
 <img width="644" height="140" alt="image" src="https://github.com/user-attachments/assets/33bfd9b7-0e92-4978-a607-fe3aaf8a719d" />
 
-## Etapa 2 — Calculadora científica (Integrante 2)
+## Etapa 2 — Calculadora científica 
 
 En esta etapa se amplió la gramática y el Visitor recibidos del Integrante 1
 para convertir la calculadora básica en una calculadora científica completa,
@@ -1292,10 +1292,10 @@ siguiendo las secciones 17 a 26 del tutorial.
 
 ### Evidencias
 
-![Potencia y funciones]
+### Potencia y funciones
 <img width="1275" height="426" alt="potencias" src="https://github.com/user-attachments/assets/5259d25e-68ac-4e1e-ac08-afdb8d1bd62c" />
 
-![Constantes y operadores unarios]
+### Constantes y operadores unarios
 
 <img width="837" height="201" alt="unitarios" src="https://github.com/user-attachments/assets/a794a13b-12b2-41e0-92d5-05f1dd35e125" />
 
@@ -1304,7 +1304,7 @@ siguiendo las secciones 17 a 26 del tutorial.
 <img width="1284" height="156" alt="con2" src="https://github.com/user-attachments/assets/1f4994c1-e44b-4d13-a082-3f13abcf0c04" />
 
 
-![Comandos clear y vars]
+### Comandos clear y vars
 <img width="1281" height="225" alt="com1" src="https://github.com/user-attachments/assets/11df94f5-d421-46c1-83ff-6babb1e8a4f3" />
 
 
