@@ -1250,5 +1250,65 @@ Esta situación permite analizar si resulta más adecuado devolver cero o genera
 >
 <img width="644" height="140" alt="image" src="https://github.com/user-attachments/assets/33bfd9b7-0e92-4978-a607-fe3aaf8a719d" />
 
+## Etapa 2 — Calculadora científica (Integrante 2)
+
+En esta etapa se amplió la gramática y el Visitor recibidos del Integrante 1
+para convertir la calculadora básica en una calculadora científica completa,
+siguiendo las secciones 17 a 26 del tutorial.
+
+### Funcionalidades agregadas
+- Potencia (`^`), asociativa a la derecha (ej. `2^8` → `256.0`).
+- Operadores unarios (`-x`, `+x`).
+- Funciones matemáticas: `sin`, `cos`, `tan`, `sqrt`, `log`, `ln`, `abs`, `exp`.
+- Constantes matemáticas `pi` y `e`.
+- Comando `clear` (borra la memoria de variables).
+- Comando `vars` (muestra las variables definidas en memoria).
+
+### Archivos modificados
+- `ScientificCalc.g4`
+- `ScientificEvalVisitor.java`
+- Archivos regenerados automáticamente por ANTLR: `ScientificCalcLexer.java`,
+  `ScientificCalcParser.java`, `ScientificCalcVisitor.java`,
+  `ScientificCalcBaseVisitor.java`
+
+### Pruebas realizadas
+
+| Expresión | Resultado esperado | Resultado obtenido |
+|---|---|---|
+| `2^8` | 256.0 | correcto |
+| `sqrt(25)` | 5.0 | correcto |
+| `cos(0)` | 1.0 | correcto |
+| `log(100)` | 2.0 | correcto |
+| `abs(-10)` | 10.0 | correcto |
+| `pi` | 3.141592653589793 | correcto |
+| `2*pi` | 6.283185307179586 | correcto |
+| `sin(pi/2)` | 1.0 | correcto |
+| `ln(e)` | 1.0 | correcto |
+| `-10` | -10.0 | correcto |
+| `-2+5` | 3.0 | correcto |
+| `vars` (con a=10, b=20) | Muestra `a = 10.0` / `b = 20.0` | correcto |
+| `clear` | "Memoria eliminada." | correcto |
+| `vars` (después de clear) | "No hay variables definidas." | correcto |
+
+### Evidencias
+
+![Potencia y funciones]
+<img width="1275" height="426" alt="potencias" src="https://github.com/user-attachments/assets/5259d25e-68ac-4e1e-ac08-afdb8d1bd62c" />
+
+![Constantes y operadores unarios]
+
+<img width="837" height="201" alt="unitarios" src="https://github.com/user-attachments/assets/a794a13b-12b2-41e0-92d5-05f1dd35e125" />
+
+<img width="876" height="276" alt="con1" src="https://github.com/user-attachments/assets/cf7f329b-46dc-4e88-aa46-bcfb899230a0" />
+
+<img width="1284" height="156" alt="con2" src="https://github.com/user-attachments/assets/1f4994c1-e44b-4d13-a082-3f13abcf0c04" />
+
+
+![Comandos clear y vars]
+<img width="1281" height="225" alt="com1" src="https://github.com/user-attachments/assets/11df94f5-d421-46c1-83ff-6babb1e8a4f3" />
+
+
+<img width="1272" height="153" alt="com" src="https://github.com/user-attachments/assets/616af21c-0053-4c19-aaea-1b6bd37888d5" />
+
 
 
